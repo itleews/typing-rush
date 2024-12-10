@@ -1,9 +1,0 @@
-main DSTACK_USAGE:1 DSTACK_LEVEL:1 FILE:"time-attack-typing.c" LINE:47
-CheckUserInput DSTACK_USAGE:2 DSTACK_LEVEL:3 FILE:"time-attack-typing.c" LINE:127
-NextRound DSTACK_USAGE:0 DSTACK_LEVEL:3 FILE:"time-attack-typing.c" LINE:142
-LCD_String DSTACK_USAGE:4 DSTACK_LEVEL:7 FILE:"time-attack-typing.c" LINE:212
-Data DSTACK_USAGE:2 DSTACK_LEVEL:9 FILE:"time-attack-typing.c" LINE:233
-external_int5 DSTACK_USAGE:12 DSTACK_LEVEL:21 FILE:"time-attack-typing.c" LINE:267
-ResetGame DSTACK_USAGE:0 DSTACK_LEVEL:21 FILE:"time-attack-typing.c" LINE:168
-LCD_String DSTACK_USAGE:4 DSTACK_LEVEL:25 FILE:"time-attack-typing.c" LINE:212
-Data DSTACK_USAGE:2 DSTACK_LEVEL:27 FILE:"time-attack-typing.c" LINE:233
