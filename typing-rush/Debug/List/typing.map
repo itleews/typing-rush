@@ -1,0 +1,46 @@
+RAM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+time_limits                                                                       0x0500       5
+random_keys                                                                       0x0505       5
+user_input                                                                        0x050A       5
+_seed (stdlib.lib)                                                                0x050F       4
+
+EEPROM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+
+Register Allocation
+Variable                                                                          Register  Size
+------------------------------------------------------------------------------------------------
+sec_up                                                                            R5           1
+sec_low                                                                           R4           1
+timer_running                                                                     R2.0      1bit
+game_running                                                                      R2.1      1bit
+input_index                                                                       R7           1
+round                                                                             R6           1
+success_count                                                                     R9           1
+
+FLASH Allocation [words]
+Function                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+main                                                                              0x000DD     52
+USART_Init                                                                        0x00111     12
+USART_Transmit                                                                    0x0011D      6
+USART_Receive                                                                     0x00123      4
+GenerateRandomKeys                                                                0x00127     27
+DisplayPattern                                                                    0x00142     23
+CheckUserInput                                                                    0x00159     38
+NextAttempt                                                                       0x0017F      4
+DisplayUserInput                                                                  0x00183     25
+NextRound                                                                         0x0019C     52
+GameOver                                                                          0x001D0      7
+ResetGame                                                                         0x001D7     10
+Time_out                                                                          0x001E1     29
+LCD_init                                                                          0x001FE     18
+LCD_String                                                                        0x00210     16
+Data                                                                              0x00227     24
+Busy                                                                              0x0023F      4
+external_int4                                                                     0x00243     24
+external_int5                                                                     0x0025B     17
+rand                                                                              0x0026C     28

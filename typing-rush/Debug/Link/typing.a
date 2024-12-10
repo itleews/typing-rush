@@ -1,0 +1,1046 @@
+;#include <mega128.h>
+;PCODE: $00000000 VOL: 0
+	#ifndef __SLEEP_DEFINED__
+;PCODE: $00000001 VOL: 0
+	#define __SLEEP_DEFINED__
+;PCODE: $00000002 VOL: 0
+	.EQU __se_bit=0x20
+;PCODE: $00000003 VOL: 0
+	.EQU __sm_mask=0x1C
+;PCODE: $00000004 VOL: 0
+	.EQU __sm_powerdown=0x10
+;PCODE: $00000005 VOL: 0
+	.EQU __sm_powersave=0x18
+;PCODE: $00000006 VOL: 0
+	.EQU __sm_standby=0x14
+;PCODE: $00000007 VOL: 0
+	.EQU __sm_ext_standby=0x1C
+;PCODE: $00000008 VOL: 0
+	.EQU __sm_adc_noise_red=0x08
+;PCODE: $00000009 VOL: 0
+	.SET power_ctrl_reg=mcucr
+;PCODE: $0000000A VOL: 0
+	#endif
+;PCODE: $0000000B VOL: 0
+;PCODE: $0000000C VOL: 0
+;#include <delay.h>
+;#include <stdlib.h>
+;
+;// 기존 정의 유지
+;#define ENABLE PORTA.2
+;#define FUNCSET 0x28
+;#define ENTMODE 0x06
+;#define ALLCLR 0x01
+;#define DISPON 0x0c
+;#define LINE2 0xC0
+;
+;typedef unsigned char u_char;
+;typedef unsigned char lcd_char;
+;
+;// 무작위 키 패턴 정의
+;flash char key_options[8] = { 'Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F' };
+;flash u_char seg_pat[10] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
+;
+;u_char sec_up = 0, sec_low = 100;  // 분/초
+;u_char time_limits[5] = { 15, 10, 7, 5, 3 };  // 각 라운드 제한 시간
+
+	.DSEG
+;bit timer_running = 0;  // 타이머 상태
+;bit game_running = 0;   // 게임 상태
+;char random_keys[5];  // 라운드별 패턴
+;char user_input[5];
+;u_char input_index = 0;
+;u_char round = 1;  // 현재 라운드 (1부터 시작)
+;u_char success_count = 0; // 성공 횟수
+;
+;// 함수 선언
+;void Time_out(void);
+;void LCD_init(void);
+;void LCD_String(char flash*);
+;void Busy(void);
+;void Command(lcd_char);
+;void Data(lcd_char);
+;void GenerateRandomKeys(void);
+;void DisplayPattern(void);
+;void CheckUserInput(char);
+;void NextRound(void);
+;void GameOver(void);
+;void ResetGame(void);
+;void USART_Init(unsigned int);
+;char USART_Receive(void);
+;void USART_Transmit(char);
+;void DisplayUserInput(void);
+;void NextAttempt(void);
+;
+;// 메인 함수
+;void main(void) {
+; 0000 0032 void main(void) {
+
+	.CSEG
+;PCODE: $0000000D VOL: 0
+; 0000 0033     DDRB = 0xF0;
+;PCODE: $0000000E VOL: 0
+;PCODE: $0000000F VOL: 0
+; 0000 0034     DDRD = 0xF0;
+;PCODE: $00000010 VOL: 0
+;PCODE: $00000011 VOL: 0
+; 0000 0035     DDRG = 0x0F;
+;PCODE: $00000012 VOL: 0
+;PCODE: $00000013 VOL: 0
+; 0000 0036 
+; 0000 0037     EIMSK = 0b00110000;
+;PCODE: $00000014 VOL: 0
+;PCODE: $00000015 VOL: 0
+; 0000 0038     EICRB = 0b00001000;
+;PCODE: $00000016 VOL: 0
+;PCODE: $00000017 VOL: 0
+; 0000 0039     SREG = 0x80;
+;PCODE: $00000018 VOL: 0
+;PCODE: $00000019 VOL: 0
+; 0000 003A 
+; 0000 003B     LCD_init();
+;PCODE: $0000001A VOL: 0
+; 0000 003C     LCD_String("Typing Rush!");  // 게임 제목
+;PCODE: $0000001B VOL: 0
+;PCODE: $0000001C VOL: 0
+;PCODE: $0000001D VOL: 0
+; 0000 003D     Command(LINE2);
+;PCODE: $0000001E VOL: 0
+;PCODE: $0000001F VOL: 0
+; 0000 003E     LCD_String("Start Press KEY1");
+;PCODE: $00000020 VOL: 0
+;PCODE: $00000021 VOL: 0
+;PCODE: $00000022 VOL: 0
+; 0000 003F     delay_ms(500);
+;PCODE: $00000023 VOL: 0
+;PCODE: $00000024 VOL: 0
+; 0000 0040 
+; 0000 0041     USART_Init(103);  // 9600bps
+;PCODE: $00000025 VOL: 0
+;PCODE: $00000026 VOL: 0
+;PCODE: $00000027 VOL: 0
+; 0000 0042 
+; 0000 0043     while (1) {
+;PCODE: $00000028 VOL: 0
+; 0000 0044         if (timer_running) {
+;PCODE: $00000029 VOL: 0
+;PCODE: $0000002A VOL: 0
+;PCODE: $0000002B VOL: 0
+; 0000 0045             Time_out();
+;PCODE: $0000002C VOL: 0
+; 0000 0046 
+; 0000 0047             // USART 입력 처리
+; 0000 0048             if (game_running && (UCSR0A & (1 << RXC0))) {
+;PCODE: $0000002D VOL: 0
+;PCODE: $0000002E VOL: 0
+;PCODE: $0000002F VOL: 0
+;PCODE: $00000030 VOL: 0
+;PCODE: $00000031 VOL: 0
+;PCODE: $00000032 VOL: 0
+;PCODE: $00000033 VOL: 0
+;PCODE: $00000034 VOL: 0
+;PCODE: $00000035 VOL: 0
+;PCODE: $00000036 VOL: 0
+; 0000 0049                 char received_char = USART_Receive();
+; 0000 004A                 CheckUserInput(received_char);
+;PCODE: $00000037 VOL: 0
+;	received_char -> Y+0
+;PCODE: $00000038 VOL: 0
+;PCODE: $00000039 VOL: 0
+;PCODE: $0000003A VOL: 0
+;PCODE: $0000003B VOL: 0
+; 0000 004B                 USART_Transmit(received_char);
+;PCODE: $0000003C VOL: 0
+;PCODE: $0000003D VOL: 0
+; 0000 004C             }
+;PCODE: $0000003E VOL: 0
+; 0000 004D 
+; 0000 004E             // 제한 시간 감소
+; 0000 004F             sec_low -= 1;
+;PCODE: $0000003F VOL: 0
+;PCODE: $00000040 VOL: 0
+; 0000 0050             if (sec_low == 0) {
+;PCODE: $00000041 VOL: 0
+;PCODE: $00000042 VOL: 0
+; 0000 0051                 sec_low = 100;
+;PCODE: $00000043 VOL: 0
+;PCODE: $00000044 VOL: 0
+; 0000 0052                 if (sec_up > 0) {
+;PCODE: $00000045 VOL: 0
+;PCODE: $00000046 VOL: 0
+;PCODE: $00000047 VOL: 0
+; 0000 0053                     sec_up -= 1;
+;PCODE: $00000048 VOL: 0
+; 0000 0054                 }
+; 0000 0055                 else {
+;PCODE: $00000049 VOL: 0
+;PCODE: $0000004A VOL: 0
+; 0000 0056                     GameOver();  // 시간 초과 시 게임 종료
+;PCODE: $0000004B VOL: 0
+; 0000 0057                 }
+;PCODE: $0000004C VOL: 0
+; 0000 0058             }
+; 0000 0059         }
+;PCODE: $0000004D VOL: 0
+; 0000 005A     }
+;PCODE: $0000004E VOL: 0
+;PCODE: $0000004F VOL: 0
+;PCODE: $00000050 VOL: 0
+; 0000 005B }
+;PCODE: $00000051 VOL: 0
+;PCODE: $00000052 VOL: 0
+;PCODE: $00000053 VOL: 0
+;
+;// USART 초기화
+;void USART_Init(unsigned int ubrr) {
+; 0000 005E void USART_Init(unsigned int ubrr) {
+;PCODE: $00000054 VOL: 0
+;PCODE: $00000055 VOL: 0
+; 0000 005F     UBRR0H = (unsigned char)(ubrr >> 8);
+;PCODE: $00000056 VOL: 0
+;PCODE: $00000057 VOL: 0
+;PCODE: $00000058 VOL: 0
+;	ubrr -> R16,R17
+;PCODE: $00000059 VOL: 0
+;PCODE: $0000005A VOL: 0
+; 0000 0060     UBRR0L = (unsigned char)ubrr;
+;PCODE: $0000005B VOL: 0
+;PCODE: $0000005C VOL: 0
+; 0000 0061     UCSR0B = (1 << RXEN0) | (1 << TXEN0);
+;PCODE: $0000005D VOL: 0
+;PCODE: $0000005E VOL: 0
+; 0000 0062     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
+;PCODE: $0000005F VOL: 0
+;PCODE: $00000060 VOL: 0
+; 0000 0063 }
+;PCODE: $00000061 VOL: 0
+;PCODE: $00000062 VOL: 0
+;PCODE: $00000063 VOL: 0
+;
+;void USART_Transmit(char data) {
+; 0000 0065 void USART_Transmit(char data) {
+;PCODE: $00000064 VOL: 0
+;PCODE: $00000065 VOL: 0
+; 0000 0066     while (!(UCSR0A & (1 << UDRE0)));
+;PCODE: $00000066 VOL: 0
+;PCODE: $00000067 VOL: 0
+;	data -> R17
+;PCODE: $00000068 VOL: 0
+;PCODE: $00000069 VOL: 0
+;PCODE: $0000006A VOL: 0
+;PCODE: $0000006B VOL: 0
+;PCODE: $0000006C VOL: 0
+;PCODE: $0000006D VOL: 0
+; 0000 0067     UDR0 = data;
+;PCODE: $0000006E VOL: 0
+;PCODE: $0000006F VOL: 0
+; 0000 0068 }
+;PCODE: $00000070 VOL: 0
+;PCODE: $00000071 VOL: 0
+;PCODE: $00000072 VOL: 0
+;
+;char USART_Receive(void) {
+; 0000 006A char USART_Receive(void) {
+;PCODE: $00000073 VOL: 0
+;PCODE: $00000074 VOL: 0
+; 0000 006B     while (!(UCSR0A & (1 << RXC0)));
+;PCODE: $00000075 VOL: 0
+;PCODE: $00000076 VOL: 0
+;PCODE: $00000077 VOL: 0
+;PCODE: $00000078 VOL: 0
+;PCODE: $00000079 VOL: 0
+;PCODE: $0000007A VOL: 0
+; 0000 006C     return UDR0;
+;PCODE: $0000007B VOL: 0
+;PCODE: $0000007C VOL: 0
+; 0000 006D }
+;PCODE: $0000007D VOL: 0
+;
+;// 패턴 생성
+;void GenerateRandomKeys(void) {
+; 0000 0070 void GenerateRandomKeys(void) {
+;PCODE: $0000007E VOL: 0
+;PCODE: $0000007F VOL: 0
+; 0000 0071     int i;  // i를 int로 선언
+; 0000 0072     for (i = 0; i < 5; i++) {
+;PCODE: $00000080 VOL: 0
+;PCODE: $00000081 VOL: 0
+;	i -> R16,R17
+;PCODE: $00000082 VOL: 0
+;PCODE: $00000083 VOL: 0
+;PCODE: $00000084 VOL: 0
+;PCODE: $00000085 VOL: 0
+;PCODE: $00000086 VOL: 0
+;PCODE: $00000087 VOL: 0
+;PCODE: $00000088 VOL: 0
+;PCODE: $00000089 VOL: 0
+;PCODE: $0000008A VOL: 0
+; 0000 0073         random_keys[i] = key_options[rand() % 8];  // rand() 사용
+;PCODE: $0000008B VOL: 0
+;PCODE: $0000008C VOL: 0
+;PCODE: $0000008D VOL: 0
+;PCODE: $0000008E VOL: 0
+;PCODE: $0000008F VOL: 0
+;PCODE: $00000090 VOL: 0
+;PCODE: $00000091 VOL: 0
+;PCODE: $00000092 VOL: 0
+;PCODE: $00000093 VOL: 0
+;PCODE: $00000094 VOL: 0
+; 0000 0074     }
+;PCODE: $00000095 VOL: 0
+;PCODE: $00000096 VOL: 0
+;PCODE: $00000097 VOL: 0
+;PCODE: $00000098 VOL: 0
+;PCODE: $00000099 VOL: 0
+; 0000 0075 }
+;PCODE: $0000009A VOL: 0
+;PCODE: $0000009B VOL: 0
+;PCODE: $0000009C VOL: 0
+;
+;// LCD에 패턴 표시
+;void DisplayPattern(void) {
+; 0000 0078 void DisplayPattern(void) {
+;PCODE: $0000009D VOL: 0
+;PCODE: $0000009E VOL: 0
+; 0000 0079     int i;  // 변수 선언을 for문 밖에서 먼저 선언
+; 0000 007A     Command(ALLCLR);
+;PCODE: $0000009F VOL: 0
+;PCODE: $000000A0 VOL: 0
+;	i -> R16,R17
+;PCODE: $000000A1 VOL: 0
+;PCODE: $000000A2 VOL: 0
+; 0000 007B     for (i = 0; i < 5; i++) {
+;PCODE: $000000A3 VOL: 0
+;PCODE: $000000A4 VOL: 0
+;PCODE: $000000A5 VOL: 0
+;PCODE: $000000A6 VOL: 0
+;PCODE: $000000A7 VOL: 0
+;PCODE: $000000A8 VOL: 0
+;PCODE: $000000A9 VOL: 0
+;PCODE: $000000AA VOL: 0
+;PCODE: $000000AB VOL: 0
+; 0000 007C         LCD_String("[");
+;PCODE: $000000AC VOL: 0
+;PCODE: $000000AD VOL: 0
+;PCODE: $000000AE VOL: 0
+; 0000 007D         Data(random_keys[i]);  // random_keys 배열의 각 문자 출력
+;PCODE: $000000AF VOL: 0
+;PCODE: $000000B0 VOL: 0
+;PCODE: $000000B1 VOL: 0
+;PCODE: $000000B2 VOL: 0
+; 0000 007E         LCD_String("]");
+;PCODE: $000000B3 VOL: 0
+;PCODE: $000000B4 VOL: 0
+;PCODE: $000000B5 VOL: 0
+; 0000 007F     }
+;PCODE: $000000B6 VOL: 0
+;PCODE: $000000B7 VOL: 0
+;PCODE: $000000B8 VOL: 0
+;PCODE: $000000B9 VOL: 0
+;PCODE: $000000BA VOL: 0
+; 0000 0080 }
+;PCODE: $000000BB VOL: 0
+;PCODE: $000000BC VOL: 0
+;PCODE: $000000BD VOL: 0
+;
+;// 사용자 입력 처리
+;void CheckUserInput(char received_char) {
+; 0000 0083 void CheckUserInput(char received_char) {
+;PCODE: $000000BE VOL: 0
+;PCODE: $000000BF VOL: 0
+; 0000 0084     user_input[input_index] = received_char;  // 사용자 입력 저장
+;PCODE: $000000C0 VOL: 0
+;PCODE: $000000C1 VOL: 0
+;	received_char -> R17
+;PCODE: $000000C2 VOL: 0
+;PCODE: $000000C3 VOL: 0
+;PCODE: $000000C4 VOL: 0
+;PCODE: $000000C5 VOL: 0
+; 0000 0085     input_index++;  // 입력 인덱스 증가
+;PCODE: $000000C6 VOL: 0
+; 0000 0086 
+; 0000 0087     DisplayUserInput();  // 사용자 입력 표시
+;PCODE: $000000C7 VOL: 0
+; 0000 0088 
+; 0000 0089     if (received_char == random_keys[input_index - 1]) {  // 올바른 입력
+;PCODE: $000000C8 VOL: 0
+;PCODE: $000000C9 VOL: 0
+;PCODE: $000000CA VOL: 0
+;PCODE: $000000CB VOL: 0
+;PCODE: $000000CC VOL: 0
+;PCODE: $000000CD VOL: 0
+;PCODE: $000000CE VOL: 0
+; 0000 008A         if (input_index == 5) {  // 한 줄 입력 완료
+;PCODE: $000000CF VOL: 0
+;PCODE: $000000D0 VOL: 0
+;PCODE: $000000D1 VOL: 0
+; 0000 008B             success_count++;
+;PCODE: $000000D2 VOL: 0
+; 0000 008C             if (success_count == 3) {  // 3번 성공 시 다음 라운드
+;PCODE: $000000D3 VOL: 0
+;PCODE: $000000D4 VOL: 0
+;PCODE: $000000D5 VOL: 0
+; 0000 008D                 NextRound();
+;PCODE: $000000D6 VOL: 0
+; 0000 008E             } else {
+;PCODE: $000000D7 VOL: 0
+;PCODE: $000000D8 VOL: 0
+; 0000 008F                 Command(LINE2);
+;PCODE: $000000D9 VOL: 0
+;PCODE: $000000DA VOL: 0
+; 0000 0090                 LCD_String("      Hit!      ");
+;PCODE: $000000DB VOL: 0
+;PCODE: $000000DC VOL: 0
+;PCODE: $000000DD VOL: 0
+; 0000 0091                 delay_ms(500);
+;PCODE: $000000DE VOL: 0
+;PCODE: $000000DF VOL: 0
+; 0000 0092                 NextAttempt();  // 새로운 줄 표시
+;PCODE: $000000E0 VOL: 0
+; 0000 0093             }
+;PCODE: $000000E1 VOL: 0
+; 0000 0094         }
+; 0000 0095     } else {  // 틀린 입력
+;PCODE: $000000E2 VOL: 0
+;PCODE: $000000E3 VOL: 0
+;PCODE: $000000E4 VOL: 0
+; 0000 0096         Command(LINE2);
+;PCODE: $000000E5 VOL: 0
+;PCODE: $000000E6 VOL: 0
+; 0000 0097         LCD_String("     Miss!     ");
+;PCODE: $000000E7 VOL: 0
+;PCODE: $000000E8 VOL: 0
+;PCODE: $000000E9 VOL: 0
+; 0000 0098         delay_ms(500);
+;PCODE: $000000EA VOL: 0
+;PCODE: $000000EB VOL: 0
+; 0000 0099         NextAttempt();  // 새로운 줄 표시
+;PCODE: $000000EC VOL: 0
+; 0000 009A     }
+;PCODE: $000000ED VOL: 0
+; 0000 009B }
+;PCODE: $000000EE VOL: 0
+;PCODE: $000000EF VOL: 0
+;PCODE: $000000F0 VOL: 0
+;
+;// 새로운 시도 (틀리거나 한 줄 완료 시 호출)
+;void NextAttempt(void) {
+; 0000 009E void NextAttempt(void) {
+;PCODE: $000000F1 VOL: 0
+;PCODE: $000000F2 VOL: 0
+; 0000 009F     input_index = 0;  // 입력 인덱스 초기화
+;PCODE: $000000F3 VOL: 0
+; 0000 00A0     GenerateRandomKeys();  // 새로운 패턴 생성
+;PCODE: $000000F4 VOL: 0
+; 0000 00A1     DisplayPattern();  // 패턴 표시
+;PCODE: $000000F5 VOL: 0
+; 0000 00A2 }
+;PCODE: $000000F6 VOL: 0
+;PCODE: $000000F7 VOL: 0
+;
+;
+;// 사용자 입력을 LCD 두 번째 줄에 표시하는 함수
+;void DisplayUserInput(void) {
+; 0000 00A6 void DisplayUserInput(void) {
+;PCODE: $000000F8 VOL: 0
+;PCODE: $000000F9 VOL: 0
+; 0000 00A7     int i;
+; 0000 00A8 
+; 0000 00A9     // 두 번째 줄로 커서 이동
+; 0000 00AA     Command(LINE2);
+;PCODE: $000000FA VOL: 0
+;PCODE: $000000FB VOL: 0
+;	i -> R16,R17
+;PCODE: $000000FC VOL: 0
+;PCODE: $000000FD VOL: 0
+; 0000 00AB 
+; 0000 00AC     // 입력된 문자들을 순차적으로 LCD에 표시
+; 0000 00AD     for (i = 0; i < input_index; i++) {
+;PCODE: $000000FE VOL: 0
+;PCODE: $000000FF VOL: 0
+;PCODE: $00000100 VOL: 0
+;PCODE: $00000101 VOL: 0
+;PCODE: $00000102 VOL: 0
+;PCODE: $00000103 VOL: 0
+;PCODE: $00000104 VOL: 0
+;PCODE: $00000105 VOL: 0
+;PCODE: $00000106 VOL: 0
+;PCODE: $00000107 VOL: 0
+;PCODE: $00000108 VOL: 0
+; 0000 00AE         LCD_String("<");
+;PCODE: $00000109 VOL: 0
+;PCODE: $0000010A VOL: 0
+;PCODE: $0000010B VOL: 0
+; 0000 00AF         Data(user_input[i]);
+;PCODE: $0000010C VOL: 0
+;PCODE: $0000010D VOL: 0
+;PCODE: $0000010E VOL: 0
+;PCODE: $0000010F VOL: 0
+; 0000 00B0         LCD_String(">");
+;PCODE: $00000110 VOL: 0
+;PCODE: $00000111 VOL: 0
+;PCODE: $00000112 VOL: 0
+; 0000 00B1     }
+;PCODE: $00000113 VOL: 0
+;PCODE: $00000114 VOL: 0
+;PCODE: $00000115 VOL: 0
+;PCODE: $00000116 VOL: 0
+;PCODE: $00000117 VOL: 0
+; 0000 00B2 }
+;PCODE: $00000118 VOL: 0
+;PCODE: $00000119 VOL: 0
+;PCODE: $0000011A VOL: 0
+;
+;
+;// 라운드 성공 처리
+;void NextRound(void) {
+; 0000 00B6 void NextRound(void) {
+;PCODE: $0000011B VOL: 0
+;PCODE: $0000011C VOL: 0
+; 0000 00B7     round++;
+;PCODE: $0000011D VOL: 0
+; 0000 00B8     if (round > 5) {  // 5라운드 클리어
+;PCODE: $0000011E VOL: 0
+;PCODE: $0000011F VOL: 0
+;PCODE: $00000120 VOL: 0
+; 0000 00B9         Command(ALLCLR);
+;PCODE: $00000121 VOL: 0
+;PCODE: $00000122 VOL: 0
+; 0000 00BA         LCD_String("You Win!");
+;PCODE: $00000123 VOL: 0
+;PCODE: $00000124 VOL: 0
+;PCODE: $00000125 VOL: 0
+; 0000 00BB         Command(LINE2);
+;PCODE: $00000126 VOL: 0
+;PCODE: $00000127 VOL: 0
+; 0000 00BC         delay_ms(2000);
+;PCODE: $00000128 VOL: 0
+;PCODE: $00000129 VOL: 0
+; 0000 00BD         ResetGame();
+;PCODE: $0000012A VOL: 0
+; 0000 00BE     }
+; 0000 00BF     else {
+;PCODE: $0000012B VOL: 0
+;PCODE: $0000012C VOL: 0
+; 0000 00C0         // 라운드 시작 시 LCD에 "ROUND (숫자)" 출력
+; 0000 00C1         Command(ALLCLR);  // 화면 지우기
+;PCODE: $0000012D VOL: 0
+;PCODE: $0000012E VOL: 0
+; 0000 00C2         LCD_String("<ROUND ");
+;PCODE: $0000012F VOL: 0
+;PCODE: $00000130 VOL: 0
+;PCODE: $00000131 VOL: 0
+; 0000 00C3         Data('0' + round);  // 숫자 표시
+;PCODE: $00000132 VOL: 0
+;PCODE: $00000133 VOL: 0
+;PCODE: $00000134 VOL: 0
+; 0000 00C4         LCD_String(">");    // ">" 표시
+;PCODE: $00000135 VOL: 0
+;PCODE: $00000136 VOL: 0
+;PCODE: $00000137 VOL: 0
+; 0000 00C5         Command(LINE2);
+;PCODE: $00000138 VOL: 0
+;PCODE: $00000139 VOL: 0
+; 0000 00C6         LCD_String("3 Hits in ");
+;PCODE: $0000013A VOL: 0
+;PCODE: $0000013B VOL: 0
+;PCODE: $0000013C VOL: 0
+; 0000 00C7         Data('0' + time_limits[round - 1] / 10);  // 10의 자리
+;PCODE: $0000013D VOL: 0
+;PCODE: $0000013E VOL: 0
+;PCODE: $0000013F VOL: 0
+;PCODE: $00000140 VOL: 0
+;PCODE: $00000141 VOL: 0
+;PCODE: $00000142 VOL: 0
+;PCODE: $00000143 VOL: 0
+;PCODE: $00000144 VOL: 0
+;PCODE: $00000145 VOL: 0
+;PCODE: $00000146 VOL: 0
+;PCODE: $00000147 VOL: 0
+; 0000 00C8         Data('0' + time_limits[round - 1] % 10);  // 1의 자리
+;PCODE: $00000148 VOL: 0
+;PCODE: $00000149 VOL: 0
+;PCODE: $0000014A VOL: 0
+;PCODE: $0000014B VOL: 0
+;PCODE: $0000014C VOL: 0
+;PCODE: $0000014D VOL: 0
+;PCODE: $0000014E VOL: 0
+;PCODE: $0000014F VOL: 0
+;PCODE: $00000150 VOL: 0
+;PCODE: $00000151 VOL: 0
+;PCODE: $00000152 VOL: 0
+; 0000 00C9         LCD_String("s");
+;PCODE: $00000153 VOL: 0
+;PCODE: $00000154 VOL: 0
+;PCODE: $00000155 VOL: 0
+; 0000 00CA         delay_ms(1000);     // 잠시 대기 후 라운드 진행
+;PCODE: $00000156 VOL: 0
+;PCODE: $00000157 VOL: 0
+; 0000 00CB 
+; 0000 00CC         sec_up = time_limits[round - 1];
+;PCODE: $00000158 VOL: 0
+;PCODE: $00000159 VOL: 0
+;PCODE: $0000015A VOL: 0
+;PCODE: $0000015B VOL: 0
+;PCODE: $0000015C VOL: 0
+; 0000 00CD         sec_low = 100;
+;PCODE: $0000015D VOL: 0
+;PCODE: $0000015E VOL: 0
+; 0000 00CE         input_index = 0;
+;PCODE: $0000015F VOL: 0
+; 0000 00CF         success_count = 0;  // 성공 횟수 초기화
+;PCODE: $00000160 VOL: 0
+; 0000 00D0         GenerateRandomKeys();
+;PCODE: $00000161 VOL: 0
+; 0000 00D1         DisplayPattern();
+;PCODE: $00000162 VOL: 0
+; 0000 00D2     }
+;PCODE: $00000163 VOL: 0
+; 0000 00D3 }
+;PCODE: $00000164 VOL: 0
+;PCODE: $00000165 VOL: 0
+;
+;
+;// 게임 실패 처리
+;void GameOver(void) {
+; 0000 00D7 void GameOver(void) {
+;PCODE: $00000166 VOL: 0
+;PCODE: $00000167 VOL: 0
+; 0000 00D8     Command(ALLCLR);
+;PCODE: $00000168 VOL: 0
+;PCODE: $00000169 VOL: 0
+; 0000 00D9     LCD_String("Game Over!");
+;PCODE: $0000016A VOL: 0
+;PCODE: $0000016B VOL: 0
+;PCODE: $0000016C VOL: 0
+; 0000 00DA     delay_ms(2000);
+;PCODE: $0000016D VOL: 0
+;PCODE: $0000016E VOL: 0
+; 0000 00DB     ResetGame();
+;PCODE: $0000016F VOL: 0
+; 0000 00DC }
+;PCODE: $00000170 VOL: 0
+;PCODE: $00000171 VOL: 0
+;
+;// 게임 재시작
+;void ResetGame(void) {
+; 0000 00DF void ResetGame(void) {
+;PCODE: $00000172 VOL: 0
+;PCODE: $00000173 VOL: 0
+; 0000 00E0     round = 1;
+;PCODE: $00000174 VOL: 0
+;PCODE: $00000175 VOL: 0
+; 0000 00E1     sec_up = time_limits[0];
+;PCODE: $00000176 VOL: 0
+;PCODE: $00000177 VOL: 0
+; 0000 00E2     sec_low = 100;
+;PCODE: $00000178 VOL: 0
+;PCODE: $00000179 VOL: 0
+; 0000 00E3     input_index = 0;
+;PCODE: $0000017A VOL: 0
+; 0000 00E4     success_count = 0;
+;PCODE: $0000017B VOL: 0
+; 0000 00E5     game_running = 0;
+;PCODE: $0000017C VOL: 0
+;PCODE: $0000017D VOL: 0
+;PCODE: $0000017E VOL: 0
+; 0000 00E6     timer_running = 0;
+;PCODE: $0000017F VOL: 0
+;PCODE: $00000180 VOL: 0
+;PCODE: $00000181 VOL: 0
+; 0000 00E7 
+; 0000 00E8     Command(LINE2);
+;PCODE: $00000182 VOL: 0
+;PCODE: $00000183 VOL: 0
+; 0000 00E9     LCD_String("Start Press KEY1");
+;PCODE: $00000184 VOL: 0
+;PCODE: $00000185 VOL: 0
+;PCODE: $00000186 VOL: 0
+; 0000 00EA }
+;PCODE: $00000187 VOL: 0
+;PCODE: $00000188 VOL: 0
+;
+;
+;// 7세그먼트 표시
+;void Time_out(void) {
+; 0000 00EE void Time_out(void) {
+;PCODE: $00000189 VOL: 0
+;PCODE: $0000018A VOL: 0
+; 0000 00EF     PORTG = 0b00001000;
+;PCODE: $0000018B VOL: 0
+;PCODE: $0000018C VOL: 0
+; 0000 00F0     PORTD = ((seg_pat[sec_low % 10] & 0x0F) << 4) | (PORTD & 0x0F);
+;PCODE: $0000018D VOL: 0
+;PCODE: $0000018E VOL: 0
+;PCODE: $0000018F VOL: 0
+;PCODE: $00000190 VOL: 0
+;PCODE: $00000191 VOL: 0
+;PCODE: $00000192 VOL: 0
+;PCODE: $00000193 VOL: 0
+;PCODE: $00000194 VOL: 0
+;PCODE: $00000195 VOL: 0
+;PCODE: $00000196 VOL: 0
+;PCODE: $00000197 VOL: 0
+;PCODE: $00000198 VOL: 0
+;PCODE: $00000199 VOL: 0
+; 0000 00F1     PORTB = (seg_pat[sec_low % 10] & 0x70) | (PORTB & 0x0F);
+;PCODE: $0000019A VOL: 0
+;PCODE: $0000019B VOL: 0
+;PCODE: $0000019C VOL: 0
+;PCODE: $0000019D VOL: 0
+;PCODE: $0000019E VOL: 0
+;PCODE: $0000019F VOL: 0
+;PCODE: $000001A0 VOL: 0
+;PCODE: $000001A1 VOL: 0
+;PCODE: $000001A2 VOL: 0
+;PCODE: $000001A3 VOL: 0
+;PCODE: $000001A4 VOL: 0
+;PCODE: $000001A5 VOL: 0
+; 0000 00F2     delay_us(2500);
+;PCODE: $000001A6 VOL: 0
+; 0000 00F3     PORTG = 0b00000100;
+;PCODE: $000001A7 VOL: 0
+;PCODE: $000001A8 VOL: 0
+; 0000 00F4     PORTD = ((seg_pat[sec_low / 10] & 0x0F) << 4) | (PORTD & 0x0F);
+;PCODE: $000001A9 VOL: 0
+;PCODE: $000001AA VOL: 0
+;PCODE: $000001AB VOL: 0
+;PCODE: $000001AC VOL: 0
+;PCODE: $000001AD VOL: 0
+;PCODE: $000001AE VOL: 0
+;PCODE: $000001AF VOL: 0
+;PCODE: $000001B0 VOL: 0
+;PCODE: $000001B1 VOL: 0
+;PCODE: $000001B2 VOL: 0
+;PCODE: $000001B3 VOL: 0
+;PCODE: $000001B4 VOL: 0
+;PCODE: $000001B5 VOL: 0
+; 0000 00F5     PORTB = (seg_pat[sec_low / 10] & 0x70) | (PORTB & 0x0F);
+;PCODE: $000001B6 VOL: 0
+;PCODE: $000001B7 VOL: 0
+;PCODE: $000001B8 VOL: 0
+;PCODE: $000001B9 VOL: 0
+;PCODE: $000001BA VOL: 0
+;PCODE: $000001BB VOL: 0
+;PCODE: $000001BC VOL: 0
+;PCODE: $000001BD VOL: 0
+;PCODE: $000001BE VOL: 0
+;PCODE: $000001BF VOL: 0
+;PCODE: $000001C0 VOL: 0
+;PCODE: $000001C1 VOL: 0
+; 0000 00F6     delay_us(2500);
+;PCODE: $000001C2 VOL: 0
+; 0000 00F7     PORTG = 0b00000010;
+;PCODE: $000001C3 VOL: 0
+;PCODE: $000001C4 VOL: 0
+; 0000 00F8     PORTD = ((seg_pat[sec_up % 10] & 0x0F) << 4) | (PORTD & 0x0F);
+;PCODE: $000001C5 VOL: 0
+;PCODE: $000001C6 VOL: 0
+;PCODE: $000001C7 VOL: 0
+;PCODE: $000001C8 VOL: 0
+;PCODE: $000001C9 VOL: 0
+;PCODE: $000001CA VOL: 0
+;PCODE: $000001CB VOL: 0
+;PCODE: $000001CC VOL: 0
+;PCODE: $000001CD VOL: 0
+;PCODE: $000001CE VOL: 0
+;PCODE: $000001CF VOL: 0
+;PCODE: $000001D0 VOL: 0
+;PCODE: $000001D1 VOL: 0
+; 0000 00F9     PORTB = (seg_pat[sec_up % 10] & 0x70) | (PORTB & 0x0F);
+;PCODE: $000001D2 VOL: 0
+;PCODE: $000001D3 VOL: 0
+;PCODE: $000001D4 VOL: 0
+;PCODE: $000001D5 VOL: 0
+;PCODE: $000001D6 VOL: 0
+;PCODE: $000001D7 VOL: 0
+;PCODE: $000001D8 VOL: 0
+;PCODE: $000001D9 VOL: 0
+;PCODE: $000001DA VOL: 0
+;PCODE: $000001DB VOL: 0
+;PCODE: $000001DC VOL: 0
+;PCODE: $000001DD VOL: 0
+; 0000 00FA     delay_us(2500);
+;PCODE: $000001DE VOL: 0
+; 0000 00FB     PORTG = 0b00000001;
+;PCODE: $000001DF VOL: 0
+;PCODE: $000001E0 VOL: 0
+; 0000 00FC     PORTD = ((seg_pat[sec_up / 10] & 0x0F) << 4) | (PORTD & 0x0F);
+;PCODE: $000001E1 VOL: 0
+;PCODE: $000001E2 VOL: 0
+;PCODE: $000001E3 VOL: 0
+;PCODE: $000001E4 VOL: 0
+;PCODE: $000001E5 VOL: 0
+;PCODE: $000001E6 VOL: 0
+;PCODE: $000001E7 VOL: 0
+;PCODE: $000001E8 VOL: 0
+;PCODE: $000001E9 VOL: 0
+;PCODE: $000001EA VOL: 0
+;PCODE: $000001EB VOL: 0
+;PCODE: $000001EC VOL: 0
+;PCODE: $000001ED VOL: 0
+; 0000 00FD     PORTB = (seg_pat[sec_up / 10] & 0x70) | (PORTB & 0x0F);
+;PCODE: $000001EE VOL: 0
+;PCODE: $000001EF VOL: 0
+;PCODE: $000001F0 VOL: 0
+;PCODE: $000001F1 VOL: 0
+;PCODE: $000001F2 VOL: 0
+;PCODE: $000001F3 VOL: 0
+;PCODE: $000001F4 VOL: 0
+;PCODE: $000001F5 VOL: 0
+;PCODE: $000001F6 VOL: 0
+;PCODE: $000001F7 VOL: 0
+;PCODE: $000001F8 VOL: 0
+;PCODE: $000001F9 VOL: 0
+; 0000 00FE     delay_us(2500);
+;PCODE: $000001FA VOL: 0
+; 0000 00FF }
+;PCODE: $000001FB VOL: 0
+;PCODE: $000001FC VOL: 0
+;
+;// LCD 초기화
+;void LCD_init(void) {
+; 0000 0102 void LCD_init(void) {
+;PCODE: $000001FD VOL: 0
+;PCODE: $000001FE VOL: 0
+; 0000 0103     DDRA = 0xFF;
+;PCODE: $000001FF VOL: 0
+;PCODE: $00000200 VOL: 0
+; 0000 0104     PORTA = 0x00;
+;PCODE: $00000201 VOL: 0
+;PCODE: $00000202 VOL: 0
+; 0000 0105     Command(0x20);
+;PCODE: $00000203 VOL: 0
+;PCODE: $00000204 VOL: 0
+; 0000 0106     delay_ms(15);
+;PCODE: $00000205 VOL: 0
+;PCODE: $00000206 VOL: 0
+;PCODE: $00000207 VOL: 0
+; 0000 0107     Command(FUNCSET);
+;PCODE: $00000208 VOL: 0
+;PCODE: $00000209 VOL: 0
+; 0000 0108     Command(DISPON);
+;PCODE: $0000020A VOL: 0
+;PCODE: $0000020B VOL: 0
+; 0000 0109     Command(ALLCLR);
+;PCODE: $0000020C VOL: 0
+;PCODE: $0000020D VOL: 0
+; 0000 010A     Command(ENTMODE);
+;PCODE: $0000020E VOL: 0
+;PCODE: $0000020F VOL: 0
+; 0000 010B }
+;PCODE: $00000210 VOL: 0
+;PCODE: $00000211 VOL: 0
+;
+;void LCD_String(char flash* str) {
+; 0000 010D void LCD_String(char flash* str) {
+;PCODE: $00000212 VOL: 0
+;PCODE: $00000213 VOL: 0
+; 0000 010E     while (*str) Data(*str++);
+;PCODE: $00000214 VOL: 0
+;PCODE: $00000215 VOL: 0
+;PCODE: $00000216 VOL: 0
+;	*str -> R16,R17
+;PCODE: $00000217 VOL: 0
+;PCODE: $00000218 VOL: 0
+;PCODE: $00000219 VOL: 0
+;PCODE: $0000021A VOL: 0
+;PCODE: $0000021B VOL: 0
+;PCODE: $0000021C VOL: 0
+;PCODE: $0000021D VOL: 0
+;PCODE: $0000021E VOL: 0
+;PCODE: $0000021F VOL: 0
+;PCODE: $00000220 VOL: 0
+;PCODE: $00000221 VOL: 0
+;PCODE: $00000222 VOL: 0
+; 0000 010F }
+;PCODE: $00000223 VOL: 0
+;PCODE: $00000224 VOL: 0
+;PCODE: $00000225 VOL: 0
+;
+;void Command(lcd_char byte) {
+; 0000 0111 void Command(lcd_char byte) {
+;PCODE: $00000226 VOL: 0
+;PCODE: $00000227 VOL: 0
+; 0000 0112     Busy();
+;PCODE: $00000228 VOL: 0
+;PCODE: $00000229 VOL: 0
+;	byte -> R17
+;PCODE: $0000022A VOL: 0
+; 0000 0113     PORTA = 0x00;
+;PCODE: $0000022B VOL: 0
+;PCODE: $0000022C VOL: 0
+; 0000 0114     PORTA |= (byte & 0xF0);
+;PCODE: $0000022D VOL: 0
+;PCODE: $0000022E VOL: 0
+;PCODE: $0000022F VOL: 0
+;PCODE: $00000230 VOL: 0
+;PCODE: $00000231 VOL: 0
+;PCODE: $00000232 VOL: 0
+; 0000 0115     delay_us(1);
+;PCODE: $00000233 VOL: 0
+; 0000 0116     ENABLE = 1;
+;PCODE: $00000234 VOL: 0
+;PCODE: $00000235 VOL: 0
+; 0000 0117     delay_us(1);
+;PCODE: $00000236 VOL: 0
+; 0000 0118     ENABLE = 0;
+;PCODE: $00000237 VOL: 0
+;PCODE: $00000238 VOL: 0
+; 0000 0119 
+; 0000 011A     PORTA = 0x00;
+;PCODE: $00000239 VOL: 0
+;PCODE: $0000023A VOL: 0
+; 0000 011B     PORTA |= (byte << 4);
+;PCODE: $0000023B VOL: 0
+;PCODE: $0000023C VOL: 0
+;PCODE: $0000023D VOL: 0
+;PCODE: $0000023E VOL: 0
+;PCODE: $0000023F VOL: 0
+;PCODE: $00000240 VOL: 0
+; 0000 011C     delay_us(1);
+;PCODE: $00000241 VOL: 0
+; 0000 011D     ENABLE = 1;
+;PCODE: $00000242 VOL: 0
+;PCODE: $00000243 VOL: 0
+; 0000 011E     delay_us(1);
+;PCODE: $00000244 VOL: 0
+; 0000 011F     ENABLE = 0;
+;PCODE: $00000245 VOL: 0
+;PCODE: $00000246 VOL: 0
+; 0000 0120 }
+;PCODE: $00000247 VOL: 0
+;PCODE: $00000248 VOL: 0
+;PCODE: $00000249 VOL: 0
+;
+;void Data(lcd_char byte) {
+; 0000 0122 void Data(lcd_char byte) {
+;PCODE: $0000024A VOL: 0
+;PCODE: $0000024B VOL: 0
+; 0000 0123     Busy();
+;PCODE: $0000024C VOL: 0
+;PCODE: $0000024D VOL: 0
+;	byte -> R17
+;PCODE: $0000024E VOL: 0
+; 0000 0124     PORTA = 0x01;
+;PCODE: $0000024F VOL: 0
+;PCODE: $00000250 VOL: 0
+; 0000 0125     PORTA |= (byte & 0xF0);
+;PCODE: $00000251 VOL: 0
+;PCODE: $00000252 VOL: 0
+;PCODE: $00000253 VOL: 0
+;PCODE: $00000254 VOL: 0
+;PCODE: $00000255 VOL: 0
+;PCODE: $00000256 VOL: 0
+; 0000 0126     delay_us(1);
+;PCODE: $00000257 VOL: 0
+; 0000 0127     ENABLE = 1;
+;PCODE: $00000258 VOL: 0
+;PCODE: $00000259 VOL: 0
+; 0000 0128     delay_us(1);
+;PCODE: $0000025A VOL: 0
+; 0000 0129     ENABLE = 0;
+;PCODE: $0000025B VOL: 0
+;PCODE: $0000025C VOL: 0
+; 0000 012A 
+; 0000 012B     PORTA = 0x01;
+;PCODE: $0000025D VOL: 0
+;PCODE: $0000025E VOL: 0
+; 0000 012C     PORTA |= (byte << 4);
+;PCODE: $0000025F VOL: 0
+;PCODE: $00000260 VOL: 0
+;PCODE: $00000261 VOL: 0
+;PCODE: $00000262 VOL: 0
+;PCODE: $00000263 VOL: 0
+;PCODE: $00000264 VOL: 0
+; 0000 012D     delay_us(1);
+;PCODE: $00000265 VOL: 0
+; 0000 012E     ENABLE = 1;
+;PCODE: $00000266 VOL: 0
+;PCODE: $00000267 VOL: 0
+; 0000 012F     delay_us(1);
+;PCODE: $00000268 VOL: 0
+; 0000 0130     ENABLE = 0;
+;PCODE: $00000269 VOL: 0
+;PCODE: $0000026A VOL: 0
+; 0000 0131 }
+;PCODE: $0000026B VOL: 0
+;PCODE: $0000026C VOL: 0
+;PCODE: $0000026D VOL: 0
+;
+;void Busy(void) {
+; 0000 0133 void Busy(void) {
+;PCODE: $0000026E VOL: 0
+;PCODE: $0000026F VOL: 0
+; 0000 0134     delay_ms(2);
+;PCODE: $00000270 VOL: 0
+;PCODE: $00000271 VOL: 0
+;PCODE: $00000272 VOL: 0
+; 0000 0135 }
+;PCODE: $00000273 VOL: 0
+;PCODE: $00000274 VOL: 0
+;
+;// 외부 인터럽트로 게임 시작
+;interrupt[EXT_INT4] void external_int4(void) {
+; 0000 0138 interrupt[6] void external_int4(void) {
+;PCODE: $00000275 VOL: 0
+;PCODE: $00000276 VOL: 0
+; 0000 0139     if (!game_running) {
+;PCODE: $00000277 VOL: 0
+;PCODE: $00000278 VOL: 0
+;PCODE: $00000279 VOL: 0
+; 0000 013A         timer_running = 1;
+;PCODE: $0000027A VOL: 0
+;PCODE: $0000027B VOL: 0
+;PCODE: $0000027C VOL: 0
+; 0000 013B         sec_up = time_limits[0];
+;PCODE: $0000027D VOL: 0
+;PCODE: $0000027E VOL: 0
+; 0000 013C         sec_low = 100;
+;PCODE: $0000027F VOL: 0
+;PCODE: $00000280 VOL: 0
+; 0000 013D         Command(ALLCLR);  // 화면 지우기
+;PCODE: $00000281 VOL: 0
+;PCODE: $00000282 VOL: 0
+; 0000 013E         LCD_String("<ROUND 1>");
+;PCODE: $00000283 VOL: 0
+;PCODE: $00000284 VOL: 0
+;PCODE: $00000285 VOL: 0
+; 0000 013F         Command(LINE2);
+;PCODE: $00000286 VOL: 0
+;PCODE: $00000287 VOL: 0
+; 0000 0140         LCD_String("3 Hits in 15s");
+;PCODE: $00000288 VOL: 0
+;PCODE: $00000289 VOL: 0
+;PCODE: $0000028A VOL: 0
+; 0000 0141         delay_ms(1000);
+;PCODE: $0000028B VOL: 0
+;PCODE: $0000028C VOL: 0
+; 0000 0142         GenerateRandomKeys();
+;PCODE: $0000028D VOL: 0
+; 0000 0143         DisplayPattern();
+;PCODE: $0000028E VOL: 0
+; 0000 0144         game_running = 1;
+;PCODE: $0000028F VOL: 0
+;PCODE: $00000290 VOL: 0
+;PCODE: $00000291 VOL: 0
+; 0000 0145     }
+; 0000 0146 }
+;PCODE: $00000292 VOL: 0
+;PCODE: $00000293 VOL: 0
+;PCODE: $00000294 VOL: 0
+;PCODE: $00000295 VOL: 0
+;
+;// 인터럽트 초기화
+;interrupt[EXT_INT5] void external_int5(void) {
+; 0000 0149 interrupt[7] void external_int5(void) {
+;PCODE: $00000296 VOL: 0
+;PCODE: $00000297 VOL: 0
+; 0000 014A     ResetGame();  // 게임 리셋
+;PCODE: $00000298 VOL: 0
+; 0000 014B     main();
+;PCODE: $00000299 VOL: 0
+; 0000 014C }
+;PCODE: $0000029A VOL: 0
+;PCODE: $0000029B VOL: 0
+;PCODE: $0000029C VOL: 0
