@@ -2,7 +2,6 @@
 #include <delay.h>
 #include <stdlib.h>
 
-// ±âÁ¸ Á¤ÀÇ À¯Áö
 #define ENABLE PORTA.2
 #define FUNCSET 0x28
 #define ENTMODE 0x06
@@ -13,21 +12,21 @@
 typedef unsigned char u_char;
 typedef unsigned char lcd_char;
 
-// ¹«ÀÛÀ§ Å° ÆĞÅÏ Á¤ÀÇ
+// ë¬´ì‘ìœ„ í‚¤ íŒ¨í„´ ì •ì˜
 flash char key_options[8] = { 'Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F' };
 flash u_char seg_pat[10] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
 
-u_char sec_up = 0, sec_low = 100;  // ºĞ/ÃÊ
-u_char time_limits[5] = { 15, 10, 7, 5, 3 };  // °¢ ¶ó¿îµå Á¦ÇÑ ½Ã°£
-bit timer_running = 0;  // Å¸ÀÌ¸Ó »óÅÂ
-bit game_running = 0;   // °ÔÀÓ »óÅÂ
-char random_keys[5];  // ¶ó¿îµåº° ÆĞÅÏ
+u_char sec_up = 0, sec_low = 100;  // ë¶„/ì´ˆ
+u_char time_limits[5] = { 15, 10, 7, 5, 3 };  // ê° ë¼ìš´ë“œ ì œí•œ ì‹œê°„
+bit timer_running = 0;  // íƒ€ì´ë¨¸ ìƒíƒœ
+bit game_running = 0;   // ê²Œì„ ìƒíƒœ
+char random_keys[5];  // ë¼ìš´ë“œë³„ íŒ¨í„´
 char user_input[5];
 u_char input_index = 0;
-u_char round = 1;  // ÇöÀç ¶ó¿îµå (1ºÎÅÍ ½ÃÀÛ)
-u_char success_count = 0; // ¼º°ø È½¼ö
+u_char round = 1;  // í˜„ì¬ ë¼ìš´ë“œ (1ë¶€í„° ì‹œì‘)
+u_char success_count = 0; // ì„±ê³µ íšŸìˆ˜
 
-// ÇÔ¼ö ¼±¾ğ
+// í•¨ìˆ˜ ì„ ì–¸
 void Time_out(void);
 void LCD_init(void);
 void LCD_String(char flash*);
@@ -46,7 +45,7 @@ void USART_Transmit(char);
 void DisplayUserInput(void);
 void NextAttempt(void);
 
-// ¸ŞÀÎ ÇÔ¼ö
+// ë©”ì¸ í•¨ìˆ˜
 void main(void) {
     DDRB = 0xF0;
     DDRD = 0xF0;
@@ -57,7 +56,7 @@ void main(void) {
     SREG = 0x80;
 
     LCD_init();
-    LCD_String("Typing Rush!");  // °ÔÀÓ Á¦¸ñ
+    LCD_String("Typing Rush!");  // ê²Œì„ ì œëª©
     Command(LINE2);
     LCD_String("Start Press KEY1"); 
     delay_ms(500);
@@ -68,14 +67,14 @@ void main(void) {
         if (timer_running) {
             Time_out();
 
-            // USART ÀÔ·Â Ã³¸®
+            // USART ì…ë ¥ ì²˜ë¦¬
             if (game_running && (UCSR0A & (1 << RXC0))) {
                 char received_char = USART_Receive();
                 CheckUserInput(received_char);
                 USART_Transmit(received_char);
             }
 
-            // Á¦ÇÑ ½Ã°£ °¨¼Ò
+            // ì œí•œ ì‹œê°„ ê°ì†Œ
             sec_low -= 1;
             if (sec_low == 0) {
                 sec_low = 100;
@@ -83,14 +82,14 @@ void main(void) {
                     sec_up -= 1;
                 }
                 else {
-                    GameOver();  // ½Ã°£ ÃÊ°ú ½Ã °ÔÀÓ Á¾·á
+                    GameOver();  // ì‹œê°„ ì´ˆê³¼ ì‹œ ê²Œì„ ì¢…ë£Œ
                 }
             }
         }
     }
 }
 
-// USART ÃÊ±âÈ­
+// USART ì´ˆê¸°í™”
 void USART_Init(unsigned int ubrr) {
     UBRR0H = (unsigned char)(ubrr >> 8);
     UBRR0L = (unsigned char)ubrr;
@@ -108,68 +107,68 @@ char USART_Receive(void) {
     return UDR0;
 }
 
-// ÆĞÅÏ »ı¼º
+// íŒ¨í„´ ìƒì„±
 void GenerateRandomKeys(void) {
-    int i;  // i¸¦ int·Î ¼±¾ğ
+    int i;  // ië¥¼ intë¡œ ì„ ì–¸
     for (i = 0; i < 5; i++) {
-        random_keys[i] = key_options[rand() % 8];  // rand() »ç¿ë
+        random_keys[i] = key_options[rand() % 8];  // rand() ì‚¬ìš©
     }
 }
 
-// LCD¿¡ ÆĞÅÏ Ç¥½Ã
+// LCDì— íŒ¨í„´ í‘œì‹œ
 void DisplayPattern(void) {
-    int i;  // º¯¼ö ¼±¾ğÀ» for¹® ¹Û¿¡¼­ ¸ÕÀú ¼±¾ğ
+    int i;  // ë³€ìˆ˜ ì„ ì–¸ì„ forë¬¸ ë°–ì—ì„œ ë¨¼ì € ì„ ì–¸
     Command(ALLCLR);
     for (i = 0; i < 5; i++) {
         LCD_String("[");
-        Data(random_keys[i]);  // random_keys ¹è¿­ÀÇ °¢ ¹®ÀÚ Ãâ·Â
+        Data(random_keys[i]);  // random_keys ë°°ì—´ì˜ ê° ë¬¸ì ì¶œë ¥
         LCD_String("]");
     }
 }
 
-// »ç¿ëÀÚ ÀÔ·Â Ã³¸®
+// ì‚¬ìš©ì ì…ë ¥ ì²˜ë¦¬
 void CheckUserInput(char received_char) {
-    user_input[input_index] = received_char;  // »ç¿ëÀÚ ÀÔ·Â ÀúÀå
-    input_index++;  // ÀÔ·Â ÀÎµ¦½º Áõ°¡
+    user_input[input_index] = received_char;  // ì‚¬ìš©ì ì…ë ¥ ì €ì¥
+    input_index++;  // ì…ë ¥ ì¸ë±ìŠ¤ ì¦ê°€
 
-    DisplayUserInput();  // »ç¿ëÀÚ ÀÔ·Â Ç¥½Ã
+    DisplayUserInput();  // ì‚¬ìš©ì ì…ë ¥ í‘œì‹œ
 
-    if (received_char == random_keys[input_index - 1]) {  // ¿Ã¹Ù¸¥ ÀÔ·Â
-        if (input_index == 5) {  // ÇÑ ÁÙ ÀÔ·Â ¿Ï·á
+    if (received_char == random_keys[input_index - 1]) {  // ì˜¬ë°”ë¥¸ ì…ë ¥
+        if (input_index == 5) {  // í•œ ì¤„ ì…ë ¥ ì™„ë£Œ
             success_count++;
-            if (success_count == 3) {  // 3¹ø ¼º°ø ½Ã ´ÙÀ½ ¶ó¿îµå
+            if (success_count == 3) {  // 3ë²ˆ ì„±ê³µ ì‹œ ë‹¤ìŒ ë¼ìš´ë“œ
                 NextRound();
             } else {
                 Command(LINE2);
                 LCD_String("      Hit!      ");
                 delay_ms(500);
-                NextAttempt();  // »õ·Î¿î ÁÙ Ç¥½Ã
+                NextAttempt();  // ìƒˆë¡œìš´ ì¤„ í‘œì‹œ
             }
         }
-    } else {  // Æ²¸° ÀÔ·Â
+    } else {  // í‹€ë¦° ì…ë ¥
         Command(LINE2);
         LCD_String("     Miss!     ");
         delay_ms(500);
-        NextAttempt();  // »õ·Î¿î ÁÙ Ç¥½Ã
+        NextAttempt();  // ìƒˆë¡œìš´ ì¤„ í‘œì‹œ
     }
 }
 
-// »õ·Î¿î ½Ãµµ (Æ²¸®°Å³ª ÇÑ ÁÙ ¿Ï·á ½Ã È£Ãâ)
+// ìƒˆë¡œìš´ ì‹œë„ (í‹€ë¦¬ê±°ë‚˜ í•œ ì¤„ ì™„ë£Œ ì‹œ í˜¸ì¶œ)
 void NextAttempt(void) {
-    input_index = 0;  // ÀÔ·Â ÀÎµ¦½º ÃÊ±âÈ­
-    GenerateRandomKeys();  // »õ·Î¿î ÆĞÅÏ »ı¼º
-    DisplayPattern();  // ÆĞÅÏ Ç¥½Ã
+    input_index = 0;  // ì…ë ¥ ì¸ë±ìŠ¤ ì´ˆê¸°í™”
+    GenerateRandomKeys();  // ìƒˆë¡œìš´ íŒ¨í„´ ìƒì„±
+    DisplayPattern();  // íŒ¨í„´ í‘œì‹œ
 }
 
 
-// »ç¿ëÀÚ ÀÔ·ÂÀ» LCD µÎ ¹øÂ° ÁÙ¿¡ Ç¥½ÃÇÏ´Â ÇÔ¼ö
+// ì‚¬ìš©ì ì…ë ¥ì„ LCD ë‘ ë²ˆì§¸ ì¤„ì— í‘œì‹œí•˜ëŠ” í•¨ìˆ˜
 void DisplayUserInput(void) {
     int i;
 
-    // µÎ ¹øÂ° ÁÙ·Î Ä¿¼­ ÀÌµ¿
+    // ë‘ ë²ˆì§¸ ì¤„ë¡œ ì»¤ì„œ ì´ë™
     Command(LINE2);
 
-    // ÀÔ·ÂµÈ ¹®ÀÚµéÀ» ¼øÂ÷ÀûÀ¸·Î LCD¿¡ Ç¥½Ã
+    // ì…ë ¥ëœ ë¬¸ìë“¤ì„ ìˆœì°¨ì ìœ¼ë¡œ LCDì— í‘œì‹œ
     for (i = 0; i < input_index; i++) {
         LCD_String("<");
         Data(user_input[i]);
@@ -178,10 +177,10 @@ void DisplayUserInput(void) {
 }
 
 
-// ¶ó¿îµå ¼º°ø Ã³¸®
+// ë¼ìš´ë“œ ì„±ê³µ ì²˜ë¦¬
 void NextRound(void) {
     round++;
-    if (round > 5) {  // 5¶ó¿îµå Å¬¸®¾î
+    if (round > 5) {  // 5ë¼ìš´ë“œ í´ë¦¬ì–´
         Command(ALLCLR);
         LCD_String("You Win!");
         Command(LINE2);
@@ -189,29 +188,29 @@ void NextRound(void) {
         ResetGame();
     }
     else {
-        // ¶ó¿îµå ½ÃÀÛ ½Ã LCD¿¡ "ROUND (¼ıÀÚ)" Ãâ·Â
-        Command(ALLCLR);  // È­¸é Áö¿ì±â
+        // ë¼ìš´ë“œ ì‹œì‘ ì‹œ LCDì— "ROUND (ìˆ«ì)" ì¶œë ¥
+        Command(ALLCLR);  // í™”ë©´ ì§€ìš°ê¸°
         LCD_String("<ROUND ");
-        Data('0' + round);  // ¼ıÀÚ Ç¥½Ã
-        LCD_String(">");    // ">" Ç¥½Ã
+        Data('0' + round);  // ìˆ«ì í‘œì‹œ
+        LCD_String(">");    // ">" í‘œì‹œ
         Command(LINE2);
         LCD_String("3 Hits in ");
-        Data('0' + time_limits[round - 1] / 10);  // 10ÀÇ ÀÚ¸®
-        Data('0' + time_limits[round - 1] % 10);  // 1ÀÇ ÀÚ¸®
+        Data('0' + time_limits[round - 1] / 10);  // 10ì˜ ìë¦¬
+        Data('0' + time_limits[round - 1] % 10);  // 1ì˜ ìë¦¬
         LCD_String("s");
-        delay_ms(1000);     // Àá½Ã ´ë±â ÈÄ ¶ó¿îµå ÁøÇà
+        delay_ms(1000);     // ì ì‹œ ëŒ€ê¸° í›„ ë¼ìš´ë“œ ì§„í–‰
 
         sec_up = time_limits[round - 1];
         sec_low = 100;
         input_index = 0;
-        success_count = 0;  // ¼º°ø È½¼ö ÃÊ±âÈ­
+        success_count = 0;  // ì„±ê³µ íšŸìˆ˜ ì´ˆê¸°í™”
         GenerateRandomKeys();
         DisplayPattern();
     }
 }
 
 
-// °ÔÀÓ ½ÇÆĞ Ã³¸®
+// ê²Œì„ ì‹¤íŒ¨ ì²˜ë¦¬
 void GameOver(void) {
     Command(ALLCLR);
     LCD_String("Game Over!");
@@ -219,7 +218,7 @@ void GameOver(void) {
     ResetGame();
 }
 
-// °ÔÀÓ Àç½ÃÀÛ
+// ê²Œì„ ì¬ì‹œì‘
 void ResetGame(void) {
     round = 1;
     sec_up = time_limits[0];
@@ -234,7 +233,7 @@ void ResetGame(void) {
 }
 
 
-// 7¼¼±×¸ÕÆ® Ç¥½Ã
+// 7ì„¸ê·¸ë¨¼íŠ¸ í‘œì‹œ
 void Time_out(void) {
     PORTG = 0b00001000;
     PORTD = ((seg_pat[sec_low % 10] & 0x0F) << 4) | (PORTD & 0x0F);
@@ -254,7 +253,7 @@ void Time_out(void) {
     delay_us(2500);
 }
 
-// LCD ÃÊ±âÈ­
+// LCD ì´ˆê¸°í™”
 void LCD_init(void) {
     DDRA = 0xFF;
     PORTA = 0x00;
@@ -308,13 +307,13 @@ void Busy(void) {
     delay_ms(2);
 }
 
-// ¿ÜºÎ ÀÎÅÍ·´Æ®·Î °ÔÀÓ ½ÃÀÛ
+// ì™¸ë¶€ ì¸í„°ëŸ½íŠ¸ë¡œ ê²Œì„ ì‹œì‘
 interrupt[EXT_INT4] void external_int4(void) {
     if (!game_running) {
         timer_running = 1;
         sec_up = time_limits[0];
         sec_low = 100;
-        Command(ALLCLR);  // È­¸é Áö¿ì±â
+        Command(ALLCLR);  // í™”ë©´ ì§€ìš°ê¸°
         LCD_String("<ROUND 1>");
         Command(LINE2);
         LCD_String("3 Hits in 15s");
@@ -325,8 +324,8 @@ interrupt[EXT_INT4] void external_int4(void) {
     }
 }
 
-// ÀÎÅÍ·´Æ® ÃÊ±âÈ­
+// ì¸í„°ëŸ½íŠ¸ ì´ˆê¸°í™”
 interrupt[EXT_INT5] void external_int5(void) {
-    ResetGame();  // °ÔÀÓ ¸®¼Â
+    ResetGame();  // ê²Œì„ ë¦¬ì…‹
     main();
 }
