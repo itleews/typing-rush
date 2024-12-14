@@ -16,7 +16,7 @@ typedef unsigned char lcd_char;
 flash char key_options[8] = { 'Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F' };
 flash u_char seg_pat[10] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
 
-u_char sec_up = 0, sec_low = 100;  // 분/초
+u_char sec_up = 0, sec_low = 100;  // 초/0.01초
 u_char time_limits[5] = { 15, 10, 7, 5, 3 };  // 각 라운드 제한 시간
 bit timer_running = 0;  // 타이머 상태
 bit game_running = 0;   // 게임 상태
@@ -26,7 +26,7 @@ u_char input_index = 0;
 u_char round = 1;  // 현재 라운드 (1부터 시작)
 u_char success_count = 0; // 성공 횟수
 
-// 함수 선언
+// 함수 원형 선언
 void Time_out(void);
 void LCD_init(void);
 void LCD_String(char flash*);
@@ -59,7 +59,6 @@ void main(void) {
     LCD_String("Typing Rush!");  // 게임 제목
     Command(LINE2);
     LCD_String("Start Press KEY1"); 
-    delay_ms(500);
 
     USART_Init(103);  // 9600bps
 
@@ -138,14 +137,16 @@ void CheckUserInput(char received_char) {
             success_count++;
             if (success_count == 3) {  // 3번 성공 시 다음 라운드
                 NextRound();
-            } else {
+            } 
+            else {
                 Command(LINE2);
                 LCD_String("      Hit!      ");
                 delay_ms(500);
                 NextAttempt();  // 새로운 줄 표시
             }
         }
-    } else {  // 틀린 입력
+    } 
+    else {  // 틀린 입력
         Command(LINE2);
         LCD_String("     Miss!     ");
         delay_ms(500);
@@ -183,7 +184,6 @@ void NextRound(void) {
     if (round > 5) {  // 5라운드 클리어
         Command(ALLCLR);
         LCD_String("You Win!");
-        Command(LINE2);
         delay_ms(2000);
         ResetGame();
     }
